@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#000000">
 <title>Beni Seviyor Musun?</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link href="style.css" rel="stylesheet">
@@ -10,10 +11,10 @@
 <body>
 <div id="stage" class="konteyner">
   <div id="hearts" aria-hidden="true"></div>
-  <img src="./1000076364.png" alt="" class="img1">
-  <img src="./1000074970.jpg" alt="" class="img2">
-  <img src="./IMG_3023.png" class="img3">
-  <img src="./IMG_3031.png" alt="" class="img4">
+  <img src="1000076364.png" alt="" class="img1">
+  <img src="1000074970.jpg" alt="" class="img2">
+  <img src="IMG_3023.png" alt="" class="img3">
+  <img src="IMG_3031.png" alt="" class="img4">
 
 
 
@@ -43,13 +44,25 @@
 /* ---- Sahneyi ekrana sığdır ---- */
 const stage=document.getElementById('stage');
 function fit(){
-  const k=Math.min(innerWidth/1536,innerHeight/1024);
-  stage.style.transform=`scale(${k}) translate(-50%,-50%)`;
-  stage.style.transformOrigin='0 0';
-  stage.style.left='50%';stage.style.top='50%';
+  const vw=innerWidth;
+  const typing=document.activeElement===document.getElementById('answer');
+  if(!typing||!fit.h)fit.h=innerHeight;                 // klavye açılınca ekranın küçülmesini yok say
+  const vh=(typing&&fit.h>vw*1.1)?fit.h:innerHeight;
+  const portrait=vh>vw*1.1;                               // dikey telefon / tablet
+  let k,cx=768,cy=512;
+  if(portrait){k=Math.min(vw/780,vh/1130);cy=685;}        // orta bölüme yaklaş, fotoğraflar alta iner
+  else{k=Math.min(vw/1536,vh/1024);}                      // yatay ekran: tüm sahne sığar
+  stage.style.left='0';stage.style.top='0';stage.style.transformOrigin='0 0';
+  stage.style.transform=`translate(${vw/2}px,${vh/2}px) scale(${k}) translate(${-cx}px,${-cy}px)`;
+  stage.classList.toggle('portrait',portrait);
+  stage.classList.toggle('small',k<0.7);                  // küçük ekranda yazı ve düğmeler büyür
 }
-/* translate(-50%,-50%) ölçekten sonra uygulanır -> merkezleme */
-addEventListener('resize',fit);fit();
+addEventListener('resize',fit);
+addEventListener('orientationchange',()=>setTimeout(fit,200));
+if(window.visualViewport)visualViewport.addEventListener('resize',fit);
+document.getElementById('answer').addEventListener('focus',fit);
+document.getElementById('answer').addEventListener('blur',()=>{fit.h=0;fit();});
+fit();
 
 /* ---- Yüzen kalplar ---- */
 const box=document.getElementById('hearts');
@@ -118,11 +131,19 @@ function startSynth(){
   ctx.resume();
   if(!started){started=true;nextT=ctx.currentTime+.1;t0=ctx.currentTime;timer=setInterval(()=>{if(ctx.state==='running')schedule()},150);}
 }
+let mp3Failed=false;
+const useMp3=()=>MP3&&!mp3Failed;
 function startMusic(){
-  if(MP3){audioEl=audioEl||Object.assign(new Audio(MP3),{loop:true,volume:+vol.value});audioEl.play().catch(()=>{});}
+  if(useMp3()){
+    if(!audioEl){
+      audioEl=Object.assign(new Audio(encodeURI(MP3)),{loop:true,volume:+vol.value});
+      audioEl.addEventListener('error',()=>{mp3Failed=true;audioEl=null;if(wantPlay)startSynth();});
+    }
+    audioEl.play().catch(()=>{});
+  }
   else startSynth();
 }
-function stopMusic(){ if(MP3){audioEl&&audioEl.pause();} else if(ctx)ctx.suspend(); }
+function stopMusic(){ if(audioEl)audioEl.pause(); if(ctx)ctx.suspend(); }
 const playBtn=document.getElementById('play'),vol=document.getElementById('vol'),bar2=document.getElementById('bar');
 function sync(){playBtn.textContent=wantPlay?'❚❚':'▶';}
 playBtn.onclick=e=>{e.stopPropagation();wantPlay=!wantPlay;wantPlay?startMusic():stopMusic();sync();};
@@ -135,9 +156,9 @@ setInterval(()=>{
 },200);
 /* Otomatik başlatmayı dene; tarayıcı engellerse ilk dokunuşta başlar */
 if(wantPlay){try{startMusic()}catch(e){}}
-['pointerdown','keydown','touchstart'].forEach(ev=>addEventListener(ev,()=>{
-  if(wantPlay&&(!ctx||ctx.state!=='running')&&!MP3)startMusic();
-  if(wantPlay&&MP3&&audioEl&&audioEl.paused)startMusic();
+['pointerdown','keydown','touchstart','touchend','click'].forEach(ev=>addEventListener(ev,()=>{
+  if(wantPlay&&(!ctx||ctx.state!=='running')&&!useMp3())startMusic();
+  if(wantPlay&&useMp3()&&audioEl&&audioEl.paused)startMusic();
 },{passive:true}));
 </script>
 </body>
